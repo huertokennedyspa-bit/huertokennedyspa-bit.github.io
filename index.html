@@ -275,7 +275,10 @@ select option{background:var(--wh);}
     <h2>Buscador de Productos</h2>
     <div style="margin-bottom:20px">
       <label>Buscar por nombre, código o PLU</label>
-      <input type="text" id="q" placeholder="Escribe aquí... ej: 'a', 'tom', '4011'" oninput="buscar()" autocomplete="off" style="font-size:15px;padding:10px 14px;">
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input type="text" id="q" placeholder="Escribe aquí... ej: 'a', 'tom', '4011'" onkeydown="if(event.key==='Enter')buscar()" autocomplete="off" style="font-size:15px;padding:10px 14px;flex:1">
+        <button class="btn bp" onclick="buscar()" style="padding:10px 20px;font-size:15px;margin-top:0">🔍 Buscar</button>
+      </div>
     </div>
     <div id="bRes"></div>
   </div>
