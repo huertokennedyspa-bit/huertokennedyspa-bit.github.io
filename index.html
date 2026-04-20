@@ -117,6 +117,7 @@ select option{background:var(--wh);}
   <button onclick="tab('merma',this)">+ Merma</button>
   <button onclick="tab('hist',this)">Historial</button>
   <button onclick="tab('prods',this)">Productos</button>
+  <button onclick="tab('buscar',this)">🔍 Buscador</button>
 </nav>
 <main>
 
@@ -325,6 +326,18 @@ select option{background:var(--wh);}
   </div>
 </div>
 
+<!-- BUSCADOR -->
+<div id="tab-buscar" class="tab">
+  <div class="fcard">
+    <h2>Buscador de Productos</h2>
+    <div style="margin-bottom:20px">
+      <label>Buscar por nombre, código o PLU</label>
+      <input type="text" id="q" placeholder="Escribe aquí... ej: 'a', 'tom', '4011'" oninput="buscar()" autocomplete="off" style="font-size:15px;padding:10px 14px;">
+    </div>
+    <div id="bRes"></div>
+  </div>
+</div>
+
 </main>
 <script>
 const KM='hk_movs', KP='hk_prods';
@@ -339,8 +352,8 @@ function tab(n,b){
   document.getElementById('tab-'+n).classList.add('active'); b.classList.add('active');
   if(n==='dash')renderDash();
   if(n==='hist'){fillFP();renderHist();}
-  if(n==='prods')renderProds();
-}
+  if(n==='buscar'){buscar();}
+
 
 function init(){
   const t=new Date().toISOString().split('T')[0];
@@ -736,7 +749,76 @@ function refreshSelects(){
   });
 }
 
-// ─── UTILS ──────────────────────────────────────────────
+// ─── BUSCADOR ───────────────────────────────────────────
+function buscar(){
+  const q=(document.getElementById('q')?.value||'').toLowerCase().trim();
+  const prods=gP();
+  const movs=gM();
+  const div=document.getElementById('bRes');
+  if(!prods.length){div.innerHTML='<div class="empty">Sin productos en el catálogo.</div>';return;}
+
+  const res=q ? prods.filter(p=>
+    p.nom.toLowerCase().includes(q)||
+    (p.cod||'').toLowerCase().includes(q)||
+    (p.plu||'').includes(q)
+  ) : prods;
+
+  if(!res.length){div.innerHTML='<div class="empty">No hay productos que coincidan con "'+q+'".</div>';return;}
+
+  // Build stock map
+  const sm={};
+  prods.forEach(p=>sm[p.id]={qty:0,costoTotal:0,mermaQty:0,lastBuy:0,lastSell:0});
+  movs.forEach(m=>{
+    if(!sm[m.productoId])return;
+    const s=sm[m.productoId];
+    if(m.tipo==='compra'){s.qty+=m.cantidad;s.costoTotal+=m.cantidad*m.precio;s.lastBuy=Math.max(s.lastBuy||0,new Date(m.fecha).getTime());}
+    else if(m.tipo==='venta'){s.qty-=m.cantidad;s.lastSell=Math.max(s.lastSell||0,new Date(m.fecha).getTime());}
+    else if(m.tipo==='merma'){s.qty-=m.cantidad;s.mermaQty+=m.cantidad;}
+  });
+
+  let html=`<div class="tbox"><div class="thead"><h3>${res.length} resultado${res.length!==1?'s':''} ${q?'para "'+q+'"':''}</h3></div>
+  <table><thead><tr>
+    <th>Código</th><th>PLU</th><th>Producto</th><th>Formato</th>
+    <th>Precio Venta</th><th>Stock Actual</th><th>Costo Prom</th><th>Margen</th>
+    <th>Última Compra</th><th>Última Venta</th>
+  </tr></thead><tbody>`;
+
+  res.forEach(p=>{
+    const s=sm[p.id]||{qty:0,costoTotal:0,mermaQty:0};
+    const cu=s.costoTotal>0&&(s.qty+s.mermaQty)>0?s.costoTotal/(s.qty+s.mermaQty):0;
+    const pv=p.pv||0;
+    const margen=pv>0&&cu>0?((pv-cu)/pv*100).toFixed(1)+'%':'—';
+    const min=p.min||0;
+    const cls=s.qty<=0?'zero':(min>0&&s.qty<=min?'low':'ok');
+    const lastB=s.lastBuy?new Date(s.lastBuy).toLocaleDateString('es-CL'):'—';
+    const lastS=s.lastSell?new Date(s.lastSell).toLocaleDateString('es-CL'):'—';
+
+    // Highlight matching text
+    const hl=(txt,q)=>{
+      if(!q||!txt)return txt||'';
+      const re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+      return txt.replace(re,'<mark style="background:#fff3cd;border-radius:2px">$1</mark>');
+    };
+
+    html+=`<tr>
+      <td>${p.cod?'<span class="cb">'+hl(p.cod,q)+'</span>':'—'}</td>
+      <td>${p.plu?'<span class="cb cplu">'+hl(p.plu,q)+'</span>':'—'}</td>
+      <td><strong>${hl(p.nom,q)}</strong></td>
+      <td style="color:var(--td)">${p.fmt||'—'}</td>
+      <td>${pv?'$'+fmt(pv):'—'}</td>
+      <td class="${cls}">${fmtQ(s.qty)} ${p.fmt||''}</td>
+      <td>${cu>0?'$'+fmt(cu):'—'}</td>
+      <td style="color:${margen!=='—'?(parseFloat(margen)>20?'var(--gr)':'var(--ye)'):'var(--td)'}">${margen}</td>
+      <td style="color:var(--td);font-size:12px">${lastB}</td>
+      <td style="color:var(--td);font-size:12px">${lastS}</td>
+    </tr>`;
+  });
+
+  html+='</tbody></table></div>';
+  div.innerHTML=html;
+}
+
+
 function fmt(n){if(!n||isNaN(n))return'0';return Math.round(n).toLocaleString('es-CL');}
 function fmtQ(n){if(!n||isNaN(n))return'0';return parseFloat(n.toFixed(2)).toLocaleString('es-CL');}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
