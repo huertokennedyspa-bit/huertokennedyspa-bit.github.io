@@ -294,10 +294,12 @@ let MOVS  = [];
 
 // ─── API ────────────────────────────────────────────────
 async function apiGet(action){
-  const r = await fetch(URL_GS + '?action=' + action);
-  const rows = await r.json();
-  // Filter empty rows
-  return rows.filter(r => r[0] && r[0] !== '');
+  const r = await fetch(URL_GS + '?action=' + action, {redirect:'follow'});
+  const data = await r.json();
+  // If it returned an error object instead of array
+  if (!Array.isArray(data)) { console.error('apiGet error:', data); return []; }
+  // Filter out empty rows (first cell must be non-empty string)
+  return data.filter(row => Array.isArray(row) && row[0] !== '' && row[0] !== null && row[0] !== undefined);
 }
 
 async function apiPost(data){
@@ -318,9 +320,12 @@ async function reload(){
   loading(true);
   try {
     const [pRows, mRows] = await Promise.all([apiGet('getProds'), apiGet('getMovs')]);
-    PRODS = pRows.map(r => ({id:r[0],nom:r[1],cod:r[2]||'',plu:r[3]||'',fmt:r[4]||'kg',pv:+r[5]||0,min:+r[6]||0}));
-    MOVS  = mRows.map(r => ({id:r[0],tipo:r[1],productoId:r[2],fecha:r[3],cantidad:+r[4]||0,precio:+r[5]||0,valorTotal:+r[6]||0,notas:r[7]||'',cod:r[8]||'',fmt:r[9]||''}));
-  } catch(e) { console.error(e); }
+    console.log('PRODS raw:', pRows.slice(0,3));
+    console.log('MOVS raw:', mRows.slice(0,3));
+    PRODS = pRows.map(r => ({id:String(r[0]),nom:String(r[1]||''),cod:String(r[2]||''),plu:String(r[3]||''),fmt:String(r[4]||'kg'),pv:+r[5]||0,min:+r[6]||0}));
+    MOVS  = mRows.map(r => ({id:String(r[0]),tipo:String(r[1]),productoId:String(r[2]),fecha:String(r[3]),cantidad:+r[4]||0,precio:+r[5]||0,valorTotal:+r[6]||0,notas:String(r[7]||''),cod:String(r[8]||''),fmt:String(r[9]||'')}));
+    console.log('PRODS parsed:', PRODS.length, 'MOVS parsed:', MOVS.length);
+  } catch(e) { console.error('reload error:', e); }
   loading(false);
   refreshSelects();
   renderDash();
