@@ -267,7 +267,7 @@ select option{background:var(--sf);}
     </div>
     <div class="frow3">
       <div><label>Formato Venta</label>
-        <select id="p-fmt"><option value="kg">kg</option><option value="unidad">unidad</option><option value="caja">caja</option><option value="malla">malla</option><option value="bandeja">bandeja</option><option value="bolsa">bolsa</option><option value="lt">lt</option></select>
+        <select id="p-fmt"><option value="peso">peso</option><option value="cantidad">cantidad</option></select>
       </div>
       <div><label>Precio Venta ($)</label><input type="number" id="p-pv" placeholder="0" min="0"></div>
       <div><label>Stock Mínimo</label><input type="number" id="p-min" placeholder="5" min="0" step="0.1"></div>
@@ -357,7 +357,7 @@ function pOpts(sel){
     (p.cod&&p.cod!='undefined'?'['+p.cod+'] ':'')+p.nom+'</option>').join('');
 }
 function fmtOpts(sel){
-  return ['kg','unidad','caja','malla','bandeja','bolsa','lt']
+  return ['peso','cantidad']
     .map(f=>'<option value="'+f+'"'+(f===sel?' selected':'')+'>'+f+'</option>').join('');
 }
 function lastPrice(pid){
@@ -512,8 +512,13 @@ async function loadProdsFile(input){
 }
 
 function matchProd(nom){
-  const n=nom.toLowerCase();
-  return PRODS.find(p=>p.nom.toLowerCase()===n||(p.cod||'').toLowerCase()===n||(p.plu||'')===nom||p.nom.toLowerCase().includes(n)||n.includes(p.nom.toLowerCase()));
+  const n=nom.toLowerCase().trim();
+  // Solo coincidencia exacta: nombre, código o PLU
+  return PRODS.find(p=>
+    p.nom.toLowerCase()===n ||
+    (p.cod&&p.cod!=='undefined'&&p.cod.toLowerCase()===n) ||
+    (p.plu&&p.plu!=='undefined'&&p.plu===nom.trim())
+  );
 }
 
 // ── SAVE ─────────────────────────────────────────────────
